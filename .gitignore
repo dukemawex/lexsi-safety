@@ -1,0 +1,47 @@
+# Local environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Secrets and local credentials (never commit)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+hf_token*
+HUGGING_FACE_HUB_TOKEN
+HF_TOKEN
+
+# Downloaded models, datasets, and run outputs
+artifacts/
+outputs/
+results/hfjob/
+data/derived/
+data/raw/
+*.safetensors
+*.bin
+*.gguf
+*.pt
+*.pth
+hf_cache/
+.cache/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Private drafts (contain personal details)
+docs/private/
+
+# local agent tooling
+.agent_harnesses.json
+.check_for_skill_update_done
+.check_for_update_done
