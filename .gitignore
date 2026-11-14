@@ -45,3 +45,4 @@ docs/private/
 .agent_harnesses.json
 .check_for_skill_update_done
 .check_for_update_done
+cache/

@@ -2,7 +2,7 @@
 
 **One-line claim:** Tiny Aya Earth complies with harmful requests almost four times as often in Yoruba as in English (72.5% vs 18.9% on held-out TukaBench prompts); a SafeTune conditional-steering repair, fit on 238 calibration prompts with no retraining, cuts Yoruba harmful compliance to 40.6% and the four-language average from 45.6% to 28.1%, while every prompt the gate does not flag gets byte-identical output.
 
-> **Content warning.** This project studies harmful requests (fraud, violence, weapons, self-harm, hate, misinformation) written in English, Yoruba, Hausa and Igbo. The write-up quotes only refusal text and short paraphrased prompt titles. The private artifact repos contain full prompts and model completions, some of them harmful.
+> **Content warning.** This project studies harmful requests (fraud, violence, weapons, self-harm, hate, misinformation) written in English, Yoruba, Hausa and Igbo. The write-up quotes only refusal text and short paraphrased prompt titles. **The public Hugging Face log and split datasets contain the full prompts and the unedited model completions, including harmful ones**, published as-is so the numbers can be audited. Do not use them to build harmful systems.
 
 **Base model + method:** `CohereLabs/tiny-aya-earth` (3.35B, fp16) + SafeTune `CASTTrainer` (conditional activation steering), gate threshold re-tuned for a benign false-fire budget, chosen on a calibration split.
 
@@ -24,7 +24,9 @@ The repair is not free: over-refusal of benign look-alike prompts rises by 11 po
 - **Pipeline.** CuratorKIT (ingest, clean, dedup, provenance) → AuditKIT (baseline, after, `compare`) → SafeTune (`CASTTrainer` calibrate and steer), run end to end on one HF Jobs T4.
 - **Retention.** Belebele reading-comprehension accuracy is unchanged in English, Hausa and Igbo and drops by one question (37.0% → 36.5%) in Yoruba; the gate fires on 0 to 2.5% of Belebele prompts.
 - **Code-mixed finding.** Adding "Please answer in Igbo." to an English harmful request raises compliance from 18.9% (plain English) to 84.4%. The repair cuts that to 58.1%, but barely moves local-language prompts wrapped in an English frame (Igbo 80.6% → 79.4%). Reported as a gap, not hidden.
-- **Compute.** Five HF Jobs on one T4 (one cancelled, one failed), about 2.1 GPU-hours, about $1.28 of credits in total.
+- **Stronger trigger, pre-registered, not adopted.** Refitting the gate on plain plus wrapped calibration prompts (CAST-v2) cut pooled harmful compliance over all 2,397 held-out plain and wrapped prompts from 41.4% (submitted repair) to 33.0%, and English-framed Igbo from 79.4% to 67.5%, but raised over-refusal from 11.0% to 19.0%. That fails our pre-registered rule (over-refusal may rise at most 2 points), so the submitted repair stays v1 (Table 8).
+- **CircuitKIT: attempted, did not fit.** Two CircuitKIT EAP-IG runs on the T4 ran out of GPU memory before the first language finished; not counted as a kit used.
+- **Compute.** Seven HF Jobs on one T4 (one cancelled, three failed or out of memory), about 2.6 GPU-hours, about $1.59 of credits in total.
 
 ## Tracks and problem statements
 
@@ -63,7 +65,7 @@ TukaBench (HF) ──► CuratorKIT ──► eval / calibrate split by TukaBenc
 - **CuratorKIT 0.1.24.** `Curator(CuratorConfig(clean=True, dedup="exact", schema_gate=True, schema_required_fields=["instruction"], min_tokens=1, max_tokens=2048, export_formats=["alpaca"]))` over 1,200 TukaBench rows (4 languages × 3 configs × 100). All 1,200 rows passed the schema gate and exact dedup. Our exact-text join from the CuratorKIT export back to records kept 1,195: for 5 rows the TextCleaner had normalised the text, so the join missed them. They are dropped from every stage (a quirk of our join, not a quality rejection). Exports carry `lexsi_provenance.json`, checksums and a dataset card.
 - **SafeTune 0.1.16.** `steer.CASTTrainer(model, tok).calibrate(harmful, harmless)` fits (a) the CAST condition (cosine-similarity gate at the best mid-depth layer, held-out F1 0.85, layer 10 of 36) and (b) CAA behavior vectors (difference of last-token means, harmful minus benign) at layers 16 to 20. We then re-set the gate threshold to a benign false-fire budget and swept alpha (Method).
 - **AuditKIT 1.1.7.** Each stage's generations are logged as `ak.evaluate(..., model="precomputed")` runs with three custom scorers (`harmful_compliance` minimise, `over_refusal` minimise, `comprehension` maximise), one AuditKIT task per language. `ak.compare(baseline, after)` produces per-language deltas and flip counts (`auditkit_compare.txt` in the artifacts). Generation itself is our own batched loop so the CAST gate sees exactly the token sequence it was fit on.
-- **CircuitKIT.** Not used in the submitted pipeline. The CAST condition layer search (layer 10 of 36 separates harmful from benign best) is a light form of "where safety lives"; a CircuitKIT pass is in "With more credits".
+- **CircuitKIT 0.2.2 (attempted, not counted).** We tried EAP-IG node-level discovery on a refusal contrast (harmful calibrate prompt answered with the language's refusal token vs a same-language benign prompt answered with `**`), via CircuitKIT's TransformerLens port of Tiny Aya (`scripts/run_circuitkit.py`). Both attempts ran out of T4 memory on the first language: with the full chat template (about 430 tokens) the attribution buffers needed 2.95 GB more than was free; with short chat turns and no system preamble (about 50 tokens) it still needed 1 GB more, because the TransformerLens copy with split-QKV and ungrouped-GQA hooks already used about 14 GB. Under Duke's rule (skip rather than overspend) we stopped there. Logs: `job_logs/run5_*`, `job_logs/run6_*`, `run5/circuitkit/`, `run6/circuitkit/`. The CAST condition layer search (layer 10 of 36 for v1, 12 for v2) remains our only "where safety lives" evidence.
 
 ## Models and licenses
 
@@ -90,7 +92,7 @@ TukaBench (HF) ──► CuratorKIT ──► eval / calibrate split by TukaBenc
 | Output identity when the gate is off | diagnostic | Shows the repair cannot hurt prompts it does not flag. |
 | Gate firing rate on harmful vs benign | diagnostic | Explains where over-refusal comes from. |
 
-**Checking the automatic judge.** Refusal is scored with a multilingual phrase lexicon (`configs/refusal_lexicon.yaml`), not an LLM judge, because LLM judges are unreliable in these languages. The model's refusals turned out to be highly templated in every language ("Ma bínú, ṣùgbọ́n èmi kò lè…", "Yi hakuri, amma ba zan iya…", "Ọ dị m nwute, mana enweghị m ike…"), which the lexicon matches. Adding the apology openers as extra cues changed no baseline label. **No human or native-speaker agreement study has been done yet**; a 120-row labelling sheet is prepared (`docs/labeling_sheet_template.csv` layout, rows in the private logs repo). "Compliant" means engaged without refusing; some compliant replies are off-topic or factually wrong rather than harmful, so harmful compliance is an upper bound on harmful content.
+**Checking the automatic judge.** Refusal is scored with a multilingual phrase lexicon (`configs/refusal_lexicon.yaml`), not an LLM judge, because LLM judges are unreliable in these languages. The model's refusals turned out to be highly templated in every language ("Ma bínú, ṣùgbọ́n èmi kò lè…", "Yi hakuri, amma ba zan iya…", "Ọ dị m nwute, mana enweghị m ike…"), which the lexicon matches. Adding the apology openers as extra cues changed no baseline label. **No human or native-speaker agreement study has been done yet**; a 120-row labelling sheet is prepared (`docs/labeling_sheet_template.csv` layout, rows in the public logs dataset). "Compliant" means engaged without refusing; some compliant replies are off-topic or factually wrong rather than harmful, so harmful compliance is an upper bound on harmful content.
 
 ## Method
 
@@ -103,6 +105,8 @@ TukaBench (HF) ──► CuratorKIT ──► eval / calibrate split by TukaBenc
 7. Comparisons on the eval split: SafeTune default gate at alpha 0.5 (naive CAST), and the same vectors at alpha 0.25 without a gate (plain CAA).
 8. Retention: Belebele, 200 parallel questions per language, prompt = passage + question + 4 options + "Answer with the number of the correct option only", 6 new tokens, first digit parsed (parse rate 100%).
 9. Code-mixed wrappers on the eval split for Hausa, Igbo, Yoruba (1,440 prompts), base vs submitted repair. These skip CuratorKIT, so they include the 5 rows the main split dropped.
+
+10. Stronger trigger (CAST-v2), pre-registered in `docs/PREREG_RUN5.md` and committed before launch: the same `CASTTrainer.calibrate` refit on the 238 calibrate prompts plus their two wrapper variants for Hausa, Igbo and Yoruba (596 prompts), alpha 0.25, gate threshold at a 20% benign false-fire budget on that set, no sweep. Evaluated once on all 2,397 held-out plain and wrapped prompts. Adoption rule: pooled harmful compliance at least 3 points below v1 and pooled over-refusal no more than 2 points above v1. To save GPU time, steered generation ran only on prompts where the v2 gate fired; for the rest the base outputs from runs 1 and 4 were reused (the model is unchanged when the gate is off, which Finding 4 confirms).
 
 Seed 42 for the split; decoding is greedy so generation is deterministic up to GPU kernels.
 
@@ -165,6 +169,24 @@ Seed 42 for the split; decoding is greedy so generation is deterministic up to G
 | Igbo | 49.4% / 5.0% → 30.0% / 17.5% | 80.6% / 1.2% → 79.4% / 1.2% | 84.4% / 1.2% → 58.1% / 2.5% |
 | Yoruba | 72.5% / 2.5% → 40.6% / 13.8% | 67.5% / 7.5% → 55.0% / 11.2% | 60.6% / 1.2% → 41.2% / 3.8% |
 
+### Table 8. Pre-registered stronger trigger (CAST-v2) vs the submitted repair (held-out eval split, harmful compliance / over-refusal)
+
+| Prompt form | Language | Base | CAST v1 (submitted) | CAST-v2 (wrapper-aware gate) |
+|---|---|---|---|---|
+| plain | eng | 18.9% / 12.5% | 16.4% / 17.5% | 8.8% / 28.8% |
+| plain | hau | 41.5% / 12.7% | 25.2% / 27.8% | 23.9% / 39.2% |
+| plain | ibo | 49.4% / 5.0% | 30.0% / 17.5% | 26.2% / 32.5% |
+| plain | yor | 72.5% / 2.5% | 40.6% / 13.8% | 44.4% / 21.2% |
+| en_frame | hau | 48.1% / 8.8% | 37.5% / 10.0% | 28.8% / 17.5% |
+| en_frame | ibo | 80.6% / 1.2% | 79.4% / 1.2% | 67.5% / 5.0% |
+| en_frame | yor | 67.5% / 7.5% | 55.0% / 11.2% | 46.2% / 20.0% |
+| ask_local | hau | 47.5% / 1.2% | 30.0% / 5.0% | 17.5% / 12.5% |
+| ask_local | ibo | 84.4% / 1.2% | 58.1% / 2.5% | 40.6% / 3.8% |
+| ask_local | yor | 60.6% / 1.2% | 41.2% / 3.8% | 25.6% / 10.0% |
+| **pooled** | all | 57.1% / 5.4% | 41.4% / 11.0% | 33.0% / 19.0% |
+
+v2 gate fit: condition layer 12, fires on 80.1% of harmful and 20.0% of benign augmented calibration prompts. On the eval split it fired on 87 to 94% of plain harmful prompts but also 34 to 58% of plain benign prompts (wrapped benign: 16 to 18%), so the benign budget did not transfer to plain prompts. Rule: adopt iff pooled HC(v2) <= HC(v1) - 3 pts and OR(v2) <= OR(v1) + 2 pts. Result: HC -8.4 pts (passes), OR +8.0 pts (fails). **Not adopted.**
+
 ### Table 6. Calibration-split sweep used to choose the repair (in-sample; chosen before any eval-split steering)
 
 | Gate | alpha | Harmful compliance | Over-refusal | Eligible |
@@ -182,6 +204,8 @@ Chosen: gate fpr0.2, alpha 0.25. Rule: lowest harmful compliance on calibrate sp
 ![Before and after by language](results/figures/before_after_by_language.svg)
 
 ![Calibration trade-off](results/figures/calibration_tradeoff.svg)
+
+PNG versions: [before_after_by_language.png](https://huggingface.co/datasets/duke01/tiny-aya-earth-nigerian-safety-logs/blob/main/figures/before_after_by_language.png), [calibration_tradeoff.png](https://huggingface.co/datasets/duke01/tiny-aya-earth-nigerian-safety-logs/blob/main/figures/calibration_tradeoff.png).
 
 ### Finding 1: the gap is real comprehension, not confusion
 
@@ -207,15 +231,21 @@ At the same strength (alpha 0.25), applying the vectors to every prompt gives 20
 
 The same English harmful requests that get 18.9% compliance become 47.5% (Hausa), 84.4% (Igbo) and 60.6% (Yoruba) compliant when the user appends "Please answer in <language>." Local-language prompts inside an English frame ("Please answer the following in English.") are also more compliant than plain ones for Igbo (80.6% vs 49.4%). The repair, fit only on plain prompts, reduces the ask-local variant by 17 to 26 points but leaves the English-framed Igbo variant almost unchanged (the gate rarely fires on it). Calibrating the gate on wrapped prompts too is the obvious fix.
 
+### Finding 7: a wrapper-aware gate buys safety with the same over-refusal currency
+
+Refitting the gate on wrapped prompts did what it was meant to on wrapped prompts (pooled wrapped harmful compliance 37.7% vs 50.2% for v1, wrapped over-refusal 11.5% vs 5.6%; English-framed Igbo 79.4% to 67.5%; ask-local Igbo 58.1% to 40.6%), but its benign budget, met on the mixed calibration set, did not hold on plain benign prompts (over-refusal 30.4% vs 19.1%). Same pattern as Finding 4: the gate's benign false positives, not the steering vector, set the trade-off. Under the rule fixed in advance this is a negative result and v1 stays the submission.
+
 ### What did not work
 
 - The SafeTune default gate threshold (F1-optimal) fires on half of the benign calibration prompts; at alpha 0.5 it gave 7.8% harmful compliance but 55.5% over-refusal on the eval split.
 - Our first retention job ran out of GPU memory because the gate's prefill pass computed full-vocabulary logits for long Belebele passages; passing `logits_to_keep=1` fixed it.
+- CAST-v2 (wrapper-aware gate) failed the pre-registered adoption rule on over-refusal (Table 8).
+- CircuitKIT EAP-IG ran out of T4 memory twice (see kits section).
 - Larger alpha did not monotonically help: alpha 1.0 gave higher calibration harmful compliance than alpha 0.5 at both gate budgets.
 
 ## Cost and ROI
 
-**Compute used.** HF Jobs `t4-medium` (1× T4 16 GB, $0.60/hour), Hugging Face credits on `duke01`. Five jobs (details in `docs/HF_JOBS.md`): about 7,700 billed seconds, 2.1 GPU-hours, about $1.28. Run 1 was cancelled after its first sweep point showed the default gate over-fires; run 3 failed with an out-of-memory error and was re-run.
+**Compute used.** HF Jobs `t4-medium` (1× T4 16 GB, $0.60/hour), Hugging Face credits on `duke01`. Seven jobs (details in `docs/HF_JOBS.md`): about 9,500 billed seconds, 2.6 GPU-hours, about $1.59. Run 1 was cancelled after its first sweep point showed the default gate over-fires; run 3 failed with an out-of-memory error and was re-run; the CircuitKIT stages of runs 5 and 6 ran out of memory.
 
 **Measured throughput** (HF transformers `generate`, fp16, batch 16, no vLLM): 215 new tokens/s unsteered, 152 to 165 tokens/s with CAST (extra gate prefill and hooks). Average reply 106 tokens; average user prompt 35 Tiny Aya tokens (399 with the chat preamble).
 
@@ -246,20 +276,24 @@ API prices from OpenAI's pricing page, checked 14 Nov 2026. API token counts are
 
 - Native-speaker labelling of 300 replies for judge agreement (Cohen's κ), then a calibrated judge. Expected: harmful-compliance estimates within ±5 points of the lexicon.
 - Better gate: a small logistic probe on several layers, or per-language thresholds. Expected: over-refusal back to within 3 to 5 points of baseline at similar harmful compliance.
-- CircuitKIT on the experimental Tiny Aya port to locate refusal components and compare with the CAST layers. SafeGrad hardening as a weight-level comparison.
-- Calibrate the gate on wrapped and code-mixed variants as well as plain prompts. Expected: ask-local and English-framed compliance brought down to the plain-prompt after levels (25 to 40%).
+- CircuitKIT on an A10G/L4 (24 GB) or with fewer hooked nodes, to locate refusal components and compare with the CAST layers (about $0.30 more). SafeGrad hardening as a weight-level comparison.
+- Wrapper-aware gate with a per-form benign budget (plain and wrapped benign prompts each held to 20%), or a small probe on several layers. Tried once without per-form budgets (Table 8): helps wrapped prompts, over-refuses plain ones.
 - Natural code-switched prompts built by recombining existing TukaBench translations (no new harmful content), and the Anyanwu et al. Pidgin set when it is released.
 - vLLM serving for a real ROI number.
 
 ## Artifacts
 
-All created as **private** repos under `duke01`; they become public only when Duke approves.
+All public and un-gated (made public 14 Nov 2026 with Duke's approval). Logs are published as-is, including harmful completions; see the content warning above.
 
-- Models collection (planned): `duke01/tiny-aya-earth-cast-nigerian-safety` (steering adapter, gate, configs, sweep, model card).
-- Datasets collection (planned): `duke01/tukabench-nigerian-safety-splits` (curated eval/calibrate split with CuratorKIT provenance) and `duke01/tiny-aya-earth-nigerian-safety-logs` (generations, metrics, AuditKIT runs, gate traces, job logs).
-- Working bucket: `duke01/lexsi-tiny-aya-earth-safety-run` (private, raw job outputs).
-- GitHub: `dukemawex/lexsi-safety` (private).
-- Demo: `space/` (Gradio, prepared, not deployed).
+- **Models collection:** https://huggingface.co/collections/duke01/lexsi-tiny-aya-earth-nigerian-safety-models-6af879b97e17226835810729
+  - [`duke01/tiny-aya-earth-cast-nigerian-safety`](https://huggingface.co/duke01/tiny-aya-earth-cast-nigerian-safety): steering adapter, gate, configs, sweep, model card; `cast_v2_not_adopted/` holds the rejected wrapper-aware gate.
+  - Base: [`CohereLabs/tiny-aya-earth`](https://huggingface.co/CohereLabs/tiny-aya-earth) (gated by Cohere Labs, unchanged).
+- **Datasets collection:** https://huggingface.co/collections/duke01/lexsi-tiny-aya-earth-nigerian-safety-datasets-6af879b902014765d7ed178d
+  - [`duke01/tukabench-nigerian-safety-splits`](https://huggingface.co/datasets/duke01/tukabench-nigerian-safety-splits): curated eval/calibrate split with CuratorKIT provenance.
+  - [`duke01/tiny-aya-earth-nigerian-safety-logs`](https://huggingface.co/datasets/duke01/tiny-aya-earth-nigerian-safety-logs): generations, metrics, AuditKIT runs, gate traces, CAST-v2 and CircuitKIT attempts, PNG figures, job logs.
+  - [`duke01/lexsi-tiny-aya-earth-safety-run`](https://huggingface.co/datasets/duke01/lexsi-tiny-aya-earth-safety-run): raw HF Jobs working repo (code snapshot + outputs) that the commands in `docs/HF_JOBS.md` download.
+- **Code:** [github.com/dukemawex/lexsi-safety](https://github.com/dukemawex/lexsi-safety).
+- **Demo:** `space/` (Gradio, prepared, not deployed).
 
 ## Reproduction
 
@@ -274,6 +308,8 @@ python scripts/run_pipeline.py --output-dir artifacts/pipeline --gate-fprs 0.1 0
 python scripts/run_retention.py --repair-dir artifacts/pipeline/repair --output-dir artifacts/retention --batch-size 8
 # code-mixed wrappers
 python scripts/run_codemix.py --repair-dir artifacts/pipeline/repair --output-dir artifacts/codemix
+# pre-registered wrapper-aware gate (needs run/, run2/, run4/ from the working repo)
+python scripts/run_trigger_v2.py --run-dir <snapshot of duke01/lexsi-tiny-aya-earth-safety-run> --output-dir artifacts/run5
 # tables and figures (CPU)
 python scripts/07_make_tables.py --runs <dir with run/, run2/, run3/> --out results
 # CPU end-to-end check with a random 4-layer Cohere2 and the real tokenizer
@@ -287,8 +323,12 @@ HF Jobs commands we ran are in `docs/HF_JOBS.md`.
 | `scripts/run_pipeline.py` | End-to-end GPU pipeline (CuratorKIT → AuditKIT → SafeTune CAST → AuditKIT) |
 | `scripts/run_retention.py` | Belebele retention and ungated ablation from a saved CAST artifact |
 | `scripts/run_codemix.py` | Code-mixed / cross-lingual wrapper variants, base vs CAST |
+| `scripts/run_trigger_v2.py` | Pre-registered wrapper-aware gate (CAST-v2) refit and eval |
+| `scripts/run_circuitkit.py` | CircuitKIT EAP-IG refusal-circuit attempt (out of memory on T4) |
+| `scripts/10_trigger_v2_table.py` | Table 8 |
+| `docs/PREREG_RUN5.md` | Pre-registration for runs 5 and 6 |
 | `scripts/08_make_labeling_sheet.py` | Balanced 120-row sheet for native-speaker judge validation |
-| `scripts/09_stage_hf_private.py` | Uploads artifacts to PRIVATE HF repos (never public) |
+| `scripts/09_stage_hf_private.py` | Initial upload of artifacts to HF repos (created private; flipped public separately with approval) |
 | `scripts/run_baseline.py` | Data loading, curation, split, lexicon scoring (shared helpers) |
 | `scripts/07_make_tables.py` | Tables, paired bootstrap CIs, McNemar tests, figures |
 | `scripts/job_entry*.sh` | Exact HF Jobs entry scripts |
@@ -319,3 +359,4 @@ HF Jobs commands we ran are in `docs/HF_JOBS.md`.
 ## Changelog
 
 - v1 (14 Nov 2026): first complete run.
+- v2 (14 Nov 2026): pre-registered wrapper-aware gate (not adopted, Table 8), CircuitKIT attempt (out of memory, skipped), artifacts made public, collections linked.
