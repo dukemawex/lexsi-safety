@@ -1,0 +1,14 @@
+# Full GPU pipeline pins (Colab, Kaggle, or HF ZeroGPU).
+# Do not install this whole file on the CPU box unless you need it.
+# Python 3.12+ is required by SafeTune and AgentTune. 3.13 works for the
+# AuditKIT and CuratorKIT smoke test.
+
+auditkit==1.1.7
+curatorkit==0.1.24
+safetune==0.1.16
+circuitkit==0.2.2
+
+# Pulled in by the kits; listed so the README is explicit.
+# transformers>=5.15 is required by SafeTune, CircuitKIT, and AuditKIT's hf: backend.
+# torch is required by SafeTune and CircuitKIT.
+# datasets is required to load TukaBench and CuratorKIT connectors.
