@@ -1,0 +1,61 @@
+# Local defaults. No secrets. Model download requires a Hugging Face account
+# that has accepted the Tiny Aya CC-BY-NC license.
+
+hackathon:
+  track: "2a"
+  problem: 4
+  title: "Multilingual and code-mixed safety"
+  deadline_aoe: "2026-11-15T23:59:00-12:00"
+  deadline_wat: "2026-11-16T12:59:00+01:00"
+
+model:
+  id: "CohereLabs/tiny-aya-earth"
+  fallback_id: "CohereLabs/tiny-aya-global"
+  notes: >
+    3.35B, gated, CC-BY-NC-4.0 plus Cohere Labs AUP. Earth is the regional
+    chat model recommended for West Asian and African languages. Hausa, Igbo
+    and Yoruba are in the official language list. Nigerian Pidgin is not.
+
+languages:
+  eval:
+    - {code: eng, name: English, in_tiny_aya: true, in_tukabench: true}
+    - {code: hau, name: Hausa, in_tiny_aya: true, in_tukabench: true}
+    - {code: ibo, name: Igbo, in_tiny_aya: true, in_tukabench: true}
+    - {code: yor, name: Yoruba, in_tiny_aya: true, in_tukabench: true}
+    - {code: pcm, name: Nigerian Pidgin, in_tiny_aya: false, in_tukabench: false, status: deferred}
+  code_mix: true
+
+datasets:
+  primary:
+    id: McGill-NLP/tukabench
+    license: CC-BY-NC-4.0
+    configs: [afri-jbb-harm, afri-jbb-benign, afri-jbb-culture]
+    splits: [eng, hau, ibo, yor]
+    source_benchmark: JailbreakBench (MIT); cite both
+  capability_holdout:
+    id: facebook/flores
+    note: "Optional small FLORES-200 or Belebele subset for task capability. Confirm split license before publishing derived files."
+  pidgin:
+    note: >
+      The Anyanwu et al. 2026 Yoruba and Nigerian Pidgin red-team set
+      (arXiv:2610.39590) is not public yet (authors plan a future release).
+      Do not invent replacement harmful Pidgin prompts. Benign public Pidgin
+      text may later be used only for over-refusal or capability checks.
+
+pipeline:
+  - curatorkit: "Ingest TukaBench, clean, dedup, split train/eval, export messages and provenance. No new harmful generation."
+  - auditkit: "Baseline harmful-compliance, over-refusal, comprehension/engagement, optional capability."
+  - safetune: "Primary repair: RefusalDirectionTrainer (inference-time steering). Optional: SafeGradTrainer if GPU remains."
+  - circuitkit: "Optional: locate refusal-relevant components on Tiny Aya (experimental cohere2 port). Skip if VRAM is tight."
+  - auditkit_after: "Same held-out metrics after the repair."
+
+metrics:
+  - harmful_compliance_rate
+  - over_refusal_rate
+  - comprehension_or_engagement_rate
+  - task_capability
+
+compute:
+  target: "Free Colab or Kaggle T4 16GB, or $20 HF ZeroGPU credits if Duke is registered and the HF username matches."
+  estimated_gpu_hours: "6 to 12"
+  do_not: "Do not spend money or connect a paid GPU provider without explicit approval."

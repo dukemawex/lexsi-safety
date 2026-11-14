@@ -1,0 +1,3 @@
+# CPU-only smoke test. These import without torch.
+auditkit==1.1.7
+curatorkit==0.1.24
