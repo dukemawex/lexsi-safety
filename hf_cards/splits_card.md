@@ -6,7 +6,7 @@ tags: [safety, tukabench, curatorkit, lexsi-hackathon]
 
 # TukaBench Nigerian-language safety splits (CuratorKIT)
 
-> Content warning: contains harmful requests (from TukaBench / JailbreakBench) in English, Hausa, Igbo and Yoruba.
+> **Content warning:** contains the full text of harmful requests (from TukaBench / JailbreakBench) in English, Hausa, Igbo and Yoruba.
 
 Curated with Lexsi CuratorKIT (clean, exact dedup, schema gate, provenance) from `McGill-NLP/tukabench` configs `afri-jbb-harm`, `afri-jbb-culture`, `afri-jbb-benign`, languages `eng`, `hau`, `ibo`, `yor`. Split by TukaBench Index (seed 42): 80% eval (957 prompts), 20% calibrate (238). All translations of an item share a split.
 
