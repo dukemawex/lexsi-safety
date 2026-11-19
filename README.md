@@ -2,6 +2,8 @@
 
 **One-line claim:** Tiny Aya Earth complies with harmful requests almost four times as often in Yoruba as in English (72.5% vs 18.9% on held-out TukaBench prompts); a SafeTune conditional-steering repair, fit on 238 calibration prompts with no retraining, cuts Yoruba harmful compliance to 40.6% and the four-language average from 45.6% to 28.1%, while every prompt the gate does not flag gets byte-identical output.
 
+**Article:** A first-person write-up of this work is on my site: [AI Safety in Yoruba, Hausa, Igbo](https://duker.me/articles/tiny-aya-earth-nigerian-safety/).
+
 > **Content warning.** This project studies harmful requests (fraud, violence, weapons, self-harm, hate, misinformation) written in English, Yoruba, Hausa and Igbo. The write-up quotes only refusal text and short paraphrased prompt titles. **The public Hugging Face log and split datasets contain the full prompts and the unedited model completions, including harmful ones**, published as-is so the numbers can be audited. Do not use them to build harmful systems.
 
 **Base model + method:** `CohereLabs/tiny-aya-earth` (3.35B, fp16) + SafeTune `CASTTrainer` (conditional activation steering), gate threshold re-tuned for a benign false-fire budget, chosen on a calibration split.
